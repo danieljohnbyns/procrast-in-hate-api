@@ -2,6 +2,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import { users } from '../utils/database.js';
+import { ObjectId } from 'mongodb';
 
 const router = express.Router();
 
@@ -9,7 +10,25 @@ const router = express.Router();
 // Get all users
 router.get('/', async (req, res) => {
 	const allUsers = await users.find().toArray();
+	for (const user of allUsers) {
+		delete user.password;
+		delete user.tokens;
+	};
 	res.status(200).json(allUsers);
+});
+
+// GET /users/:id
+// Get a user by id
+router.get('/:id', async (req, res) => {
+	const id = req.params.id;
+	const user = await users.findOne({ _id: new ObjectId(id) });
+	if (user) {
+		delete user.password;
+		delete user.tokens;
+		res.status(200).json(user);
+	} else {
+		res.status(404).json({ message: 'User not found' });
+	};
 });
 
 // PUT /users
