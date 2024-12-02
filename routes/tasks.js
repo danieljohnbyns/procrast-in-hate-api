@@ -27,7 +27,7 @@ router.get('/user/:id', async (req, res) => {
 	res.status(200).json(allTasks);
 });
 
-router.put('/user/', async (req, res) => {
+router.put('/', async (req, res) => {
 	// Input
 	/**
 	 * {
