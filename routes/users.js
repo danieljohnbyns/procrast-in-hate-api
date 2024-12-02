@@ -58,7 +58,7 @@ router.put('/', async (req, res) => {
 	};
 
 	const result = await users.insertOne(newUser);
-	
+
 	if (result.insertedId) {
 		res.status(200).json({ message: 'User signed up successfully' });
 	} else {

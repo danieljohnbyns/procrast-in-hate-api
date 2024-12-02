@@ -6,13 +6,14 @@ import mongodb from 'mongodb';
  * 
  * users: {
  * 	_id: ObjectId,
+ *  profilePicture: String,
  * 	name: String,
  * 	password: String,
  * 	email: String,
  *  token: String
  * }
  * 
- * admin: {
+ * admins: {
  * 	_id: ObjectId,
  * 	username: String,
  * 	password: String
@@ -56,14 +57,14 @@ client.connect().then(() => {
 const db = client.db('procrast-in-hate');
 
 const users = db.collection('users');
-const admin = db.collection('admin');
+const admins = db.collection('admins');
 const tasks = db.collection('tasks');
 const projects = db.collection('projects');
 
 // Create indexes
 users.createIndex({ email: 1 }, { unique: true });
-admin.createIndex({ username: 1 }, { unique: true });
+admins.createIndex({ username: 1 }, { unique: true });
 tasks.createIndex({ title: 1 });
 projects.createIndex({ title: 1 });
 
-export { users, admin, tasks, projects };
+export { users, admins, tasks, projects };
