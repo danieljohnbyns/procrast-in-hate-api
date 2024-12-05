@@ -1,6 +1,5 @@
 
 import express from 'express';
-import bcrypt from 'bcrypt';
 import { tasks, users, projects } from '../utils/database.js';
 import { ObjectId } from 'mongodb';
 
@@ -25,7 +24,8 @@ router.get('/', async (req, res) => {
 	};
 	res.status(200).json(allTasks);
 });
-
+// GET /task/:id
+// Get specific task
 router.get('/:id', async (req, res) => {
 	const id = req.params.id;
 	const task = await tasks.findOne({ _id: new ObjectId(id) });
@@ -41,7 +41,8 @@ router.get('/:id', async (req, res) => {
 		res.status(404).json({ message: 'Task not found' });
 	};
 });
-
+// GET /tasks/user/:id
+// Get user's tasks
 router.get('/user/:id', async (req, res) => {
 	const id = req.params.id;
 	const userTasks = await tasks.find({ creatorId: new ObjectId(id) }).toArray();
@@ -52,6 +53,8 @@ router.get('/user/:id', async (req, res) => {
 	res.status(200).json(allTasks);
 });
 
+// PUT /tasks/
+// Create new task
 router.put('/', async (req, res) => {
 	// Input
 	/**
@@ -172,6 +175,8 @@ router.put('/', async (req, res) => {
 	};
 });
 
+// PUT /tasks/:id
+// Edit task
 router.put('/:id', async (req, res) => {
 	const id = req.params.id;
 	const task = await tasks.findOne({ _id: new ObjectId(id) });
@@ -244,6 +249,8 @@ router.put('/:id', async (req, res) => {
 	};
 });
 
+// PUT /tasks/:id/checklists
+// Add task checklist
 router.put('/:id/checklists', async (req, res) => {
 	const id = req.params.id;
 	const task = await tasks.findOne({ _id: new ObjectId(id) });
@@ -274,6 +281,8 @@ router.put('/:id/checklists', async (req, res) => {
 		res.status(500).json({ message: 'Failed to add checklist item' });
 	};
 });
+// PATCH /tasks/:id/checklists/:itemId
+// Update task checklist
 router.patch('/:id/checklists/:itemId', async (req, res) => {
 	const id = req.params.id;
 	const itemId = req.params.itemId;
@@ -300,6 +309,8 @@ router.patch('/:id/checklists/:itemId', async (req, res) => {
 		res.status(500).json({ message: 'Failed to update checklist item' });
 	};
 });
+// DELETE /tasks/:id/checklists/:itemId
+// Delete task checklist
 router.delete('/:id/checklists/:itemId', async (req, res) => {
 	const id = req.params.id;
 	const itemId = req.params.itemId;
@@ -326,6 +337,8 @@ router.delete('/:id/checklists/:itemId', async (req, res) => {
 	};
 });
 
+// PUT /tasks/:id/collaborators
+// Add task collaborators
 router.put('/:id/collaborators', async (req, res) => {
 	const id = req.params.id;
 	const task = await tasks.findOne({ _id: new ObjectId(id) });
@@ -357,6 +370,8 @@ router.put('/:id/collaborators', async (req, res) => {
 		res.status(500).json({ message: 'Failed to add collaborator' });
 	};
 });
+// DELETE /tasks/:id/collaborators/:collaboratorId
+// Delete task collaborator
 router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 	const id = req.params.id;
 	const collaboratorId = req.params.collaboratorId;
@@ -383,6 +398,8 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 	};
 });
 
+// PATCH /tasks/:id/dates/:type
+// Update task dates
 router.patch('/:id/dates/:type', async (req, res) => {
 	const id = req.params.id;
 	const type = req.params.type;
