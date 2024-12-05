@@ -46,7 +46,7 @@ router.get('/:id', async (req, res) => {
 router.get('/user/:id', async (req, res) => {
 	const id = req.params.id;
 	const userTasks = await tasks.find({ creatorId: new ObjectId(id) }).toArray();
-	const collaboratorTasks = await tasks.find({ collaborators: new ObjectId(id) }).toArray();
+	const collaboratorTasks = await tasks.find({ 'collaborators._id': new ObjectId(id) }).toArray();
 
 	const allTasks = [...userTasks, ...collaboratorTasks];
 
@@ -174,7 +174,6 @@ router.put('/', async (req, res) => {
 		res.status(500).json({ message: 'Failed to create task' });
 	};
 });
-
 // PUT /tasks/:id
 // Edit task
 router.put('/:id', async (req, res) => {
@@ -248,6 +247,45 @@ router.put('/:id', async (req, res) => {
 		res.status(500).json({ message: 'Failed to update task' });
 	};
 });
+// DELETE /tasks/:id
+// Delete task
+router.delete('/:id', async (req, res) => {
+	const id = req.params.id;
+	const task = await tasks.findOne({ _id: new ObjectId(id) });
+
+	if (!task) {
+		res.status(404).json({ message: 'Task not found' });
+		return;
+	};
+
+	const result = await tasks.deleteOne({ _id: new ObjectId(id) });
+
+	if (result.deletedCount > 0) {
+		res.status(200).json({ message: 'Task deleted successfully' });
+	} else {
+		res.status(500).json({ message: 'Failed to delete task' });
+	};
+});
+// PATCH /tasks/:id/:completed
+// Update task status
+router.patch('/:id/:completed', async (req, res) => {
+	const id = req.params.id;
+	const completed = req.params.completed === 'true';
+	const task = await tasks.findOne({ _id: new ObjectId(id) });
+
+	if (!task) {
+		res.status(404).json({ message: 'Task not found' });
+		return;
+	};
+
+	const result = await tasks.updateOne({ _id: new ObjectId(id) }, { $set: { completed } });
+
+	if (result.modifiedCount > 0) {
+		res.status(200).json({ message: 'Task status updated successfully', completed });
+	} else {
+		res.status(500).json({ message: 'Failed to update task status' });
+	};
+});
 
 // PUT /tasks/:id/checklists
 // Add task checklist
@@ -257,6 +295,11 @@ router.put('/:id/checklists', async (req, res) => {
 
 	if (!task) {
 		res.status(404).json({ message: 'Task not found' });
+		return;
+	};
+
+	if (task.completed) {
+		res.status(400).json({ message: 'Cannot add checklist item to a completed task' });
 		return;
 	};
 
@@ -294,6 +337,11 @@ router.patch('/:id/checklists/:itemId', async (req, res) => {
 		return;
 	};
 
+	if (task.completed) {
+		res.status(400).json({ message: 'Cannot update checklist item on a completed task' });
+		return;
+	};
+
 	const checklist = task.checklists.find((item) => item.id === parseInt(itemId));
 
 	if (!checklist) {
@@ -318,6 +366,11 @@ router.delete('/:id/checklists/:itemId', async (req, res) => {
 
 	if (!task) {
 		res.status(404).json({ message: 'Task not found' });
+		return;
+	};
+
+	if (task.completed) {
+		res.status(400).json({ message: 'Cannot delete checklist item on a completed task' });
 		return;
 	};
 
