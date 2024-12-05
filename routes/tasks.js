@@ -9,11 +9,6 @@ const router = express.Router();
 // Get all tasks
 router.get('/', async (req, res) => {
 	const allTasks = await tasks.find().toArray();
-	for (const user of allTasks) {
-		delete user.password;
-		delete user.tokens;
-	};
-	// Modify collaborators and add their names
 	for (const task of allTasks) {
 		const collaborators = [];
 		for (const collaborator of task.collaborators) {
@@ -109,11 +104,11 @@ router.put('/', async (req, res) => {
 	 * 			return items;
 	 * 		})()
 	 * 	],
-	 * 	project: Math.floor(Math.random() * 1) % 2 === 0 ? null : Math.floor(Math.random() * 10) + 1
+	 * 	projectId: Math.floor(Math.random() * 1) % 2 === 0 ? null : Math.floor(Math.random() * 10) + 1
 	 * }
 	 */
 
-	const { title, description, dates, label, project, checklist, collaborators, creatorId } = req.body;
+	const { title, description, dates, label, projectId, checklist, collaborators, creatorId } = req.body;
 
 	if (!title || !description || !dates || !label || !creatorId) {
 		res.status(400).json({ message: 'Please provide all the fields' });
@@ -137,8 +132,8 @@ router.put('/', async (req, res) => {
 		};
 	};
 	// Check if project exists
-	if (project) {
-		const projectExists = await projects.findOne({ _id: new ObjectId(project) });
+	if (projectId) {
+		const projectExists = await projects.findOne({ _id: new ObjectId(projectId) });
 		if (!projectExists) {
 			res.status(400).json({ message: 'Project does not exist' });
 			return;
@@ -163,7 +158,7 @@ router.put('/', async (req, res) => {
 		creatorId: new ObjectId(creatorId),
 		collaborators: collaborators ? collaborators.map((collaborator) => ({ _id: new ObjectId(collaborator), accepted: false })) : [],
 		checklists: checklist ? checklist.map((item, index) => ({ id: index + 1, item, completed: false })) : [],
-		project: project ? new ObjectId(project) : null
+		projectId: projectId ? new ObjectId(projectId) : null
 	};
 
 	const result = await tasks.insertOne(newTask);
@@ -185,7 +180,7 @@ router.put('/:id', async (req, res) => {
 		return;
 	};
 
-	const { title, description, dates, label, project, checklists, collaborators, creatorId } = req.body;
+	const { title, description, dates, label, projectId, checklists, collaborators, creatorId } = req.body;
 
 	if (!title || !description || !dates || !label || !creatorId) {
 		res.status(400).json({ message: 'Please provide all the fields' });
@@ -209,8 +204,8 @@ router.put('/:id', async (req, res) => {
 		};
 	};
 	// Check if project exists
-	if (project) {
-		const projectExists = await projects.findOne({ _id: new ObjectId(project) });
+	if (projectId) {
+		const projectExists = await projects.findOne({ _id: new ObjectId(projectId) });
 		if (!projectExists) {
 			res.status(400).json({ message: 'Project does not exist' });
 			return;
@@ -235,7 +230,7 @@ router.put('/:id', async (req, res) => {
 		creatorId: new ObjectId(creatorId),
 		collaborators: collaborators ? collaborators : [],
 		checklists: checklists ? checklists : [],
-		project: project ? new ObjectId(project) : null
+		projectId: projectId ? new ObjectId(projectId) : null
 	};
 	console.log(updatedTask);
 
@@ -276,6 +271,14 @@ router.patch('/:id/:completed', async (req, res) => {
 	if (!task) {
 		res.status(404).json({ message: 'Task not found' });
 		return;
+	};
+
+	if (task.projectId) {
+		const project = await projects.findOne({ _id: task.projectId });
+		if (project.completed) {
+			res.status(400).json({ message: 'Cannot update status of a task in a completed project' });
+			return;
+		};
 	};
 
 	const result = await tasks.updateOne({ _id: new ObjectId(id) }, { $set: { completed } });
@@ -401,11 +404,25 @@ router.put('/:id/collaborators', async (req, res) => {
 		return;
 	};
 
+	if (task.completed) {
+		res.status(400).json({ message: 'Cannot add collaborators to a completed task' });
+		return;
+	};
+
 	const { collaboratorId } = req.body;
 
 	if (!collaboratorId) {
 		res.status(400).json({ message: 'Please provide the collaborator id' });
 		return;
+	};
+
+	if (task.projectId) {
+		// Check if collaborator is a member of the project
+		const project = await projects.findOne({ _id: task.projectId });
+		if (!project.collaborators.find((collaborator) => collaborator._id.toString() === collaboratorId)) {
+			res.status(400).json({ message: 'User is not a member of the project' });
+			return;
+		};
 	};
 
 	const collaborator = await users.findOne({ _id: new ObjectId(collaboratorId) });
@@ -435,6 +452,11 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 		return;
 	};
 
+	if (task.completed) {
+		res.status(400).json({ message: 'Cannot delete collaborators from a completed task' });
+		return;
+	}
+
 	const collaborator = task.collaborators.find((collaborator) => collaborator._id.toString() === collaboratorId);
 
 	if (!collaborator) {
@@ -463,6 +485,11 @@ router.patch('/:id/dates/:type', async (req, res) => {
 		return;
 	};
 
+	if (task.completed) {
+		res.status(400).json({ message: 'Cannot update dates on a completed task' });
+		return;
+	};
+
 	const { date } = req.body;
 
 	if (!date) {
@@ -473,6 +500,14 @@ router.patch('/:id/dates/:type', async (req, res) => {
 	if (type !== 'start' && type !== 'end') {
 		res.status(400).json({ message: 'Invalid date type' });
 		return;
+	};
+
+	if (task.projectId) {
+		const project = await projects.findOne({ _id: task.projectId });
+		if (new Date(date).getTime() < new Date(project.dates.start).getTime() || new Date(date).getTime() > new Date(project.dates.end).getTime()) {
+			res.status(400).json({ message: 'Date should be within project dates' });
+			return;
+		};
 	};
 
 	const result = await tasks.updateOne({ _id: new ObjectId(id) }, { $set: { [`dates.${type}`]: new Date(date) } });
