@@ -235,6 +235,11 @@ router.put('/:id/collaborators', async (req, res) => {
 		return;
 	};
 
+	if (project.collaborators.find(collaborator => collaborator._id.toString() === req.body.collaboratorId)) {
+		res.status(400).json({ message: 'Collaborator already added' });
+		return;
+	};
+
 	const { collaboratorId } = req.body;
 
 	const collaborator = await users.findOne({ _id: new ObjectId(collaboratorId) });

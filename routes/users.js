@@ -1,7 +1,7 @@
 
 import express from 'express';
 import bcrypt from 'bcrypt';
-import { users } from '../utils/database.js';
+import { users, tasks, projects } from '../utils/database.js';
 import { ObjectId } from 'mongodb';
 
 const router = express.Router();
@@ -107,6 +107,27 @@ router.post('/', async (req, res) => {
 	} else {
 		res.status(400).json({ message: 'Invalid credentials' });
 	};
+});
+
+// GET /users/:id/invitations
+// Get all invitations for a user
+router.get('/:id/invitations', async (req, res) => {
+	const id = req.params.id;
+	const taskInvitations = await tasks.find({ collaborators: { $elemMatch: { _id: new ObjectId(id), accepted: false } } }).toArray();
+	for (const task of taskInvitations) {
+		task.type = 'task';
+	};
+	const projectInvitations = await projects.find({ collaborators: { $elemMatch: { _id: new ObjectId(id), accepted: false } } }).toArray();
+	for (const project of projectInvitations) {
+		project.type = 'project';
+	};
+
+	const invitations = [...taskInvitations, ...projectInvitations];
+
+	const sorted = invitations.sort((a, b) => {
+		return new Date(b.dates.crete) - new Date(a.dates.create);
+	});
+	res.status(200).json(sorted);
 });
 
 export default router;
