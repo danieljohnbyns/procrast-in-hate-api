@@ -133,9 +133,19 @@ router.put('/', async (req, res) => {
 	};
 	// Check if project exists
 	if (projectId) {
-		const projectExists = await projects.findOne({ _id: new ObjectId(projectId) });
-		if (!projectExists) {
+		const project = await projects.findOne({ _id: new ObjectId(projectId) });
+		if (!project) {
 			res.status(400).json({ message: 'Project does not exist' });
+			return;
+		};
+
+		if (project.completed) {
+			res.status(400).json({ message: 'Cannot add task to a completed project' });
+			return;
+		};
+
+		if (new Date(dates.start).getTime() < new Date(project.dates.start).getTime() || new Date(dates.end).getTime() > new Date(project.dates.end).getTime()) {
+			res.status(400).json({ message: 'Task dates should be within project dates' });
 			return;
 		};
 	};

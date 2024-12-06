@@ -110,6 +110,14 @@ router.put('/', async (req, res) => {
 		completed: false
 	};
 
+	for (const collaborator of newProject.collaborators) {
+		const user = await users.findOne({ _id: collaborator._id });
+		if (!user) {
+			res.status(404).json({ message: 'User does not exist' });
+			return;
+		};
+	};
+
 	const result = await projects.insertOne(newProject);
 	if (result.insertedId) {
 		res.status(201).json({ message: 'Project created successfully' });
