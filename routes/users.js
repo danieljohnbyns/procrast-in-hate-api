@@ -172,4 +172,46 @@ router.post('/:id/invitations/:type/:invitationId', async (req, res) => {
 	};
 });
 
+// DELETE /users/:id/invitations/:type/:invitationId
+// Decline an invitation
+router.delete('/:id/invitations/:type/:invitationId', async (req, res) => {
+	const id = req.params.id;
+	const type = req.params.type;
+	const invitationId = req.params.invitationId;
+
+	const user = await users.findOne({ _id: new ObjectId(id) });
+	if (!user) {
+		res.status(404).json({ message: 'User not found' });
+		return;
+	};
+
+	const invitation = await (type === 'task' ? tasks : projects).findOne({ _id: new ObjectId(invitationId) });
+	if (!invitation) {
+		res.status(404).json({ message: 'Invitation not found' });
+		return;
+	};
+
+	const collaborators = invitation.collaborators || [];
+	const index = collaborators.findIndex(collaborator => collaborator._id.toString() === id);
+	if (index === -1) {
+		res.status(400).json({ message: 'User not invited' });
+		return;
+	};
+
+	if (collaborators[index].accepted) {
+		res.status(400).json({ message: 'User already accepted' });
+		return;
+	};
+
+	collaborators.splice(index, 1);
+	invitation.collaborators = collaborators;
+
+	const result = await (type === 'task' ? tasks : projects).updateOne({ _id: new ObjectId(invitationId) }, { $set: { collaborators } });
+	if (result.modifiedCount === 1) {
+		res.status(200).json({ message: 'Invitation declined' });
+	} else {
+		res.status(500).json({ message: 'Failed to decline invitation' });
+	};
+});
+
 export default router;
