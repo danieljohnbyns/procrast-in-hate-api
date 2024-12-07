@@ -41,11 +41,26 @@ router.get('/:id', async (req, res) => {
 router.get('/user/:id', async (req, res) => {
 	const id = req.params.id;
 	const userTasks = await tasks.find({ creatorId: new ObjectId(id) }).toArray();
-	const collaboratorTasks = await tasks.find({ 'collaborators._id': new ObjectId(id) }).toArray();
+	const collaboratorTasks = [];
+	for (const task of await tasks.find({ 'collaborators._id': new ObjectId(id) }).toArray()) {
+		const collaborator = task.collaborators.find((collaborator) => collaborator._id.toString() === id);
+		if (collaborator.accepted) {
+			collaboratorTasks.push(task);
+		};
+	};
 
-	const allTasks = [...userTasks, ...collaboratorTasks];
+	const tasksList = [...userTasks, ...collaboratorTasks];
 
-	res.status(200).json(allTasks);
+	for (const task of tasksList) {
+		const collaborators = [];
+		for (const collaborator of task.collaborators) {
+			const user = await users.findOne({ _id: collaborator._id });
+			collaborators.push({ _id: collaborator._id, name: user.name, accepted: collaborator.accepted });
+		};
+		task.collaborators = collaborators;
+	};
+
+	res.status(200).json(tasksList);
 });
 
 // PUT /tasks/

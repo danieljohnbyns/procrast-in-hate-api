@@ -40,9 +40,24 @@ router.get('/:id', async (req, res) => {
 router.get('/user/:id', async (req, res) => {
 	const id = req.params.id;
 	const userProjects = await projects.find({ creatorId: new ObjectId(id) }).toArray();
-	const collaboratorProjects = await projects.find({ 'collaborators._id': new ObjectId(id) }).toArray();
+	const collaboratorProjects = [];
+	for (const project of await projects.find({ 'collaborators._id': new ObjectId(id) }).toArray()) {
+		const collaborator = project.collaborators.find(collaborator => collaborator._id.toString() === id);
+		if (collaborator.accepted) {
+			collaboratorProjects.push(project);
+		};
+	};
 
 	const allProjects = [...userProjects, ...collaboratorProjects];
+	
+	for (const project of allProjects) {
+		const collaborators = [];
+		for (const collaborator of project.collaborators) {
+			const user = await users.findOne({ _id: collaborator._id });
+			collaborators.push({ _id: collaborator._id, name: user.name, accepted: collaborator.accepted });
+		};
+		project.collaborators = collaborators;
+	};
 
 	res.status(200).json(allProjects);
 });
@@ -260,7 +275,7 @@ router.put('/:id/collaborators', async (req, res) => {
 
 	if (result.modifiedCount) {
 		
-	res.status(200).json({ message: 'Collaborator added successfully', collaborator: { _id: new ObjectId(collaboratorId), name: collaborator.name, accepted: false } });
+		res.status(200).json({ message: 'Collaborator added successfully', collaborator: { _id: new ObjectId(collaboratorId), name: collaborator.name, accepted: false } });
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
