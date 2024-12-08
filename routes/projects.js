@@ -61,11 +61,24 @@ router.get('/user/:id', async (req, res) => {
 
 	res.status(200).json(allProjects);
 });
-// GET /projects/:id/tasks
+// GET /projects/:id/tasks/:userId
 // Get all tasks of a project
-router.get('/:id/tasks', async (req, res) => {
-	const projectTasks = await tasks.find({ projectId: new ObjectId(req.params.id) }).toArray();
-	res.status(200).json(projectTasks);
+router.get('/:id/tasks/:userId', async (req, res) => {
+	const id = req.params.id;
+	const userId = req.params.userId;
+	const project = await projects.findOne({ _id: new ObjectId(id) });
+
+	if (!project) {
+		res.status(404).json({ message: 'Project does not exist' });
+		return;
+	};
+
+	const projectTasks = await tasks.find({ projectId: new ObjectId(id) }).toArray();
+	const userTasks = projectTasks.filter(task => 
+		(task.collaborators.find(collaborator => collaborator._id.toString() === userId && collaborator.accepted)) ||
+		task.creatorId.toString() === userId
+	);
+	res.status(200).json(userTasks);
 });
 // GET /projects/:id/progress
 // Get progress of a project
@@ -95,6 +108,7 @@ router.put('/', async (req, res) => {
 	 * }
 	 */
 	const { title, description, dates, creatorId, label, collaborators } = req.body;
+	console.log(req.body);
 
 	if (!title || !description || !dates.start || !dates.end || !label) {
 		res.status(400).json({ message: 'Please provide all the fields' });
@@ -104,6 +118,14 @@ router.put('/', async (req, res) => {
 	if (new Date(dates.start).getTime() > new Date(dates.end).getTime()) {
 		res.status(400).json({ message: 'Start date cannot be after end date' });
 		return;
+	};
+
+	for (const collaborator of collaborators) {
+		const user = await users.findOne({ _id: new ObjectId(collaborator) });
+		if (!user) {
+			res.status(404).json({ message: 'User does not exist' });
+			return;
+		};
 	};
 
 	const newProject = {
@@ -118,22 +140,15 @@ router.put('/', async (req, res) => {
 		creatorId: new ObjectId(creatorId),
 		collaborators: collaborators.map(collaborator => {
 			return {
-				_id: new ObjectId(collaborator._id),
-				role: collaborator.role
+				_id: new ObjectId(collaborator),
+				accepted: false
 			};
 		}),
 		completed: false
 	};
 
-	for (const collaborator of newProject.collaborators) {
-		const user = await users.findOne({ _id: collaborator._id });
-		if (!user) {
-			res.status(404).json({ message: 'User does not exist' });
-			return;
-		};
-	};
-
 	const result = await projects.insertOne(newProject);
+
 	if (result.insertedId) {
 		res.status(201).json({ message: 'Project created successfully' });
 	} else {

@@ -31,9 +31,9 @@ router.get('/:id', async (req, res) => {
 	};
 });
 
-// PUT /users
+// POST /users
 // Sign Up a user
-router.put('/', async (req, res) => {
+router.post('/', async (req, res) => {
 	const { name, email, password } = req.body;
 
 	if (!name || !email || !password) {
@@ -66,9 +66,9 @@ router.put('/', async (req, res) => {
 	};
 });
 
-// POST /users
+// PUT /users
 // Sign In a user
-router.post('/', async (req, res) => {
+router.put('/', async (req, res) => {
 	const { email, password } = req.body;
 
 	if (!email || !password) {
