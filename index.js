@@ -42,7 +42,35 @@ import adminRoutes from './routes/admins.js';
 app.use('/admins', adminRoutes);
 
 app.get('/', (req, res) => {
-	res.status(200).json({ message: 'Welcome to Procrast-in-hate' });
+	res.status(200).json({
+		message: 'Welcome to Procrast-in-hate',
+		routes: {
+			users: userRoutes.stack.map((layer) => {
+				return {
+					url: layer.route.path,
+					method: layer.route.stack[0].method
+				};
+			}),
+			tasks: taskRoutes.stack.map((layer) => {
+				return {
+					url: layer.route.path,
+					method: layer.route.stack[0].method
+				};
+			}),
+			projects: projectRoutes.stack.map((layer) => {
+				return {
+					url: layer.route.path,
+					method: layer.route.stack[0].method
+				};
+			}),
+			admins: adminRoutes.stack.map((layer) => {
+				return {
+					url: layer.route.path,
+					method: layer.route.stack[0].method
+				};
+			})
+		}
+	});
 });
 
 server.listen(PORT, () => {

@@ -63,6 +63,28 @@ router.get('/user/:id', async (req, res) => {
 
 	res.status(200).json(tasksList);
 });
+// GET /tasks/user/:id/calendar/:year/:month
+// Get user's deadlines for a specific month
+router.get('/user/:id/calendar/:year/:month', async (req, res) => {
+	const id = req.params.id;
+	const year = parseInt(req.params.year);
+	const month = parseInt(req.params.month - 1);
+
+	const userTasks = await tasks.find({ creatorId: ObjectId(id) }).toArray();
+	const collaboratorTasks = [];
+	for (const task of await tasks.find({ 'collaborators._id': ObjectId(id) }).toArray()) {
+		const collaborator = task.collaborators.find((collaborator) => collaborator._id.toString() === id);
+		if (collaborator.accepted) {
+			collaboratorTasks.push(task);
+		};
+	};
+
+	const tasksList = [...userTasks, ...collaboratorTasks];
+
+	const deadlines = tasksList.filter((task) => task.dates.end.getFullYear() === year && task.dates.end.getMonth() === month);
+
+	res.status(200).json(deadlines);
+});
 
 // PUT /tasks/
 // Create new task
