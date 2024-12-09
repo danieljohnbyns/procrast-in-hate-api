@@ -2,6 +2,8 @@
 import express from 'express';
 import { projects, tasks, users, ObjectId } from '../utils/database.js';
 
+import { connections } from '../utils/webSocketClientHandler.js';
+
 const router = express.Router();
 
 // GET /tasks
@@ -189,6 +191,21 @@ router.put('/', async (req, res) => {
 
 	if (result.insertedId) {
 		res.status(200).json({ message: 'Task created successfully', task: newTask });
+
+		// Notify serviceWorkers collaborators that they have been invited to a task
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `You have been invited to a new task ${newTask.title}` });
+		for (const connection of connections) {
+			if (newTask.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id)) {
+				connection.ws.send(message);
+			};
+		};
+		// Notify serviceWorkers creator that task has been created
+		const creatorMessage = JSON.stringify({ type: 'NOTIFICATION', message: `Task ${newTask.title} has been created` });
+		for (const connection of connections) {
+			if (newTask.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(creatorMessage);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to create task' });
 	};
@@ -256,12 +273,19 @@ router.put('/:id', async (req, res) => {
 		checklists: checklists ? checklists : [],
 		projectId: projectId ? ObjectId(projectId) : null
 	};
-	console.log(updatedTask);
 
 	const result = await tasks.updateOne({ _id: ObjectId(id) }, { $set: updatedTask });
 
 	if (result.modifiedCount > 0) {
 		res.status(200).json({ message: 'Task updated successfully', task: updatedTask });
+
+		// Notify serviceWorkers collaborators and creator
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Task ${task.title} has been updated` });
+		for (const connection of connections) {
+			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to update task' });
 	};
@@ -281,6 +305,14 @@ router.delete('/:id', async (req, res) => {
 
 	if (result.deletedCount > 0) {
 		res.status(200).json({ message: 'Task deleted successfully' });
+		
+		// Notify serviceWorkers collaborators and creator
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Task ${task.title} has been deleted` });
+		for (const connection of connections) {
+			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to delete task' });
 	};
@@ -309,6 +341,14 @@ router.patch('/:id/:completed', async (req, res) => {
 
 	if (result.modifiedCount > 0) {
 		res.status(200).json({ message: 'Task status updated successfully', completed });
+
+		// Notify serviceWorkers collaborators and creator
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Task ${task.title} has been marked as ${completed ? 'completed' : 'incomplete'}` });
+		for (const connection of connections) {
+			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to update task status' });
 	};
@@ -347,6 +387,14 @@ router.put('/:id/checklists', async (req, res) => {
 
 	if (result.modifiedCount > 0) {
 		res.status(200).json({ message: 'Checklist item added successfully', item: updatedChecklist });
+
+		// Notify serviceWorkers collaborators and creator
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Checklist item added to task ${task.title}` });
+		for (const connection of connections) {
+			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to add checklist item' });
 	};
@@ -380,6 +428,14 @@ router.patch('/:id/checklists/:itemId', async (req, res) => {
 
 	if (result.modifiedCount > 0) {
 		res.status(200).json({ message: 'Checklist item updated successfully', completed });
+
+		// Notify serviceWorkers collaborators and creator
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Checklist item updated on task ${task.title}` });
+		for (const connection of connections) {
+			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to update checklist item' });
 	};
@@ -412,6 +468,14 @@ router.delete('/:id/checklists/:itemId', async (req, res) => {
 
 	if (result.modifiedCount > 0) {
 		res.status(200).json({ message: 'Checklist item deleted successfully' });
+
+		// Notify serviceWorkers collaborators and creator
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Checklist item deleted from task ${task.title}` });
+		for (const connection of connections) {
+			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to delete checklist item' });
 	};
@@ -460,6 +524,22 @@ router.put('/:id/collaborators', async (req, res) => {
 
 	if (result.modifiedCount > 0) {
 		res.status(200).json({ message: 'Collaborator added successfully', collaborator: { _id: ObjectId(collaboratorId), name: collaborator.name, accepted: false } });
+
+		// Notify serviceWorkers collaborator that they have been invited to a task
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `You have been invited to a new task ${task.title}` });
+		for (const connection of connections) {
+			if (collaboratorId === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
+
+		// Notify serviceWorkers collaborators and creator that a collaborator has been invited to the task
+		const taskMessage = JSON.stringify({ type: 'NOTIFICATION', message: `Collaborator ${collaborator.name} has been invited to task ${task.title}` });
+		for (const connection of connections) {
+			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(taskMessage);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to add collaborator' });
 	};
@@ -479,7 +559,7 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 	if (task.completed) {
 		res.status(400).json({ message: 'Cannot delete collaborators from a completed task' });
 		return;
-	}
+	};
 
 	const collaborator = task.collaborators.find((collaborator) => collaborator._id.toString() === collaboratorId);
 
@@ -492,6 +572,22 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 
 	if (result.modifiedCount > 0) {
 		res.status(200).json({ message: 'Collaborator deleted successfully' });
+
+		// Notify serviceWorkers collaborators and creator that a collaborator has been removed from the task
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Collaborator ${collaborator.name} has been removed from task ${task.title}` });
+		for (const connection of connections) {
+			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
+
+		// Notify serviceWorkers collaborator that they have been removed from the task
+		const collaboratorMessage = JSON.stringify({ type: 'NOTIFICATION', message: `You have been removed from task ${task.title}` });
+		for (const connection of connections) {
+			if (collaboratorId === connection.authentication._id) {
+				connection.ws.send(collaboratorMessage);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to delete collaborator' });
 	};
@@ -538,6 +634,14 @@ router.patch('/:id/dates/:type', async (req, res) => {
 
 	if (result.modifiedCount > 0) {
 		res.status(200).json({ message: 'Date updated successfully', date });
+
+		// Notify serviceWorkers collaborators and creator
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Task ${task.title} dates have been updated` });
+		for (const connection of connections) {
+			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to update date' });
 	};

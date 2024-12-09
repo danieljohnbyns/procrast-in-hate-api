@@ -38,9 +38,10 @@ export default (wss) => {
 						ws: ws
 					});
 					if (authentication?.token && authentication?._id) {
-						ws.send(`Successfully authenticated as ${authentication._id} as a ${authentication.serviceWorker ? 'serviceWorker' : 'user'}`);
+						ws.send(JSON.stringify({ type: 'AUTHENTICATION', success: true }));
+						console.log(`${authentication._id} connected to the WebSocket Server as a ${authentication.serviceWorker ? 'serviceWorker' : 'user'}`);
 					} else {
-						ws.send('Invalid authentication');
+						ws.send(JSON.stringify({ type: 'AUTHENTICATION', success: false }));
 					};
 					break;
 				};
@@ -62,3 +63,5 @@ export default (wss) => {
 		});
 	});
 };
+
+export { connections };

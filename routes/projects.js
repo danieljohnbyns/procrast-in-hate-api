@@ -2,6 +2,8 @@
 import express from 'express';
 import { projects, tasks, users, ObjectId } from '../utils/database.js';
 
+import { connections } from '../utils/webSocketClientHandler.js';
+
 const router = express.Router();
 
 // GET /projects
@@ -180,6 +182,21 @@ router.put('/', async (req, res) => {
 
 	if (result.insertedId) {
 		res.status(201).json({ message: 'Project created successfully' });
+
+		// Notify serviceWorker collaborators that they have been invited to a project
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `You have been invited to a new project ${newProject.title}`});
+		for (const connection of connections) {
+			if (newProject.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && !collaborator.accepted)) {
+				connection.ws.send(message);
+			};
+		};
+		// Notify serviceWorkers creator that task has been created
+		const creatorMessage = JSON.stringify({ type: 'NOTIFICATION', message: `Project ${newProject.title} has been created`});
+		for (const connection of connections) {
+			if (newProject.creatorId.toString() === connection.authentication._id) {
+				connection.ws.send(creatorMessage);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
@@ -217,6 +234,14 @@ router.put('/:id', async (req, res) => {
 
 	if (result.modifiedCount) {
 		res.status(200).json({ message: 'Project updated successfully' });
+
+		// Notify serviceWorker collaborators that project has been updated
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Project ${title} has been updated`});
+		for (const connection of connections) {
+			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
@@ -241,6 +266,14 @@ router.delete('/:id', async (req, res) => {
 
 	if (result.deletedCount) {
 		res.status(200).json({ message: 'Project deleted successfully' });
+
+		// Notify serviceWorker collaborators that project has been deleted
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Project ${project.title} has been deleted`});
+		for (const connection of connections) {
+			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
@@ -273,6 +306,14 @@ router.patch('/:id/:completed', async (req, res) => {
 
 	if (result.modifiedCount) {
 		res.status(200).json({ message: 'Project updated successfully' });
+
+		// Notify serviceWorker collaborators that project has been completed
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Project ${project.title} has been marked as ${completed === 'true' ? 'completed' : 'incomplete'}`});
+		for (const connection of connections) {
+			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
@@ -318,8 +359,23 @@ router.put('/:id/collaborators', async (req, res) => {
 	});
 
 	if (result.modifiedCount) {
-		
 		res.status(200).json({ message: 'Collaborator added successfully', collaborator: { _id: ObjectId(collaboratorId), name: collaborator.name, accepted: false } });
+
+		// Notify serviceWorker collaborator that they have been invited to a project
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `You have been invited to a project ${project.title}`});
+		for (const connection of connections) {
+			if (collaboratorId === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
+
+		// Notify serviceWorker collaborators that a collaborator has been added
+		const collaboratorMessage = JSON.stringify({ type: 'NOTIFICATION', message: `${collaborator.name} has been added to the project`});
+		for (const connection of connections) {
+			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				connection.ws.send(collaboratorMessage);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
@@ -355,6 +411,22 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 
 	if (result.modifiedCount) {
 		res.status(200).json({ message: 'Collaborator removed successfully' });
+
+		// Notify serviceWorker collaborator that they have been removed from a project
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `You have been removed from a project ${project.title}`});
+		for (const connection of connections) {
+			if (collaboratorId === connection.authentication._id) {
+				connection.ws.send(message);
+			};
+		};
+
+		// Notify serviceWorker collaborators that a collaborator has been removed
+		const collaboratorMessage = JSON.stringify({ type: 'NOTIFICATION', message: `A collaborator has been removed from the project`});
+		for (const connection of connections) {
+			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				connection.ws.send(collaboratorMessage);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
@@ -410,6 +482,14 @@ router.patch('/:id/dates/:type', async (req, res) => {
 
 	if (result.modifiedCount) {
 		res.status(200).json({ message: 'Date updated successfully', date });
+
+		// Notify serviceWorker collaborators that project dates have been updated
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Project ${project.title} dates have been updated`});
+		for (const connection of connections) {
+			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
