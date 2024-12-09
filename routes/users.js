@@ -1,8 +1,7 @@
 
 import express from 'express';
 import bcrypt from 'bcrypt';
-import { users, tasks, projects } from '../utils/database.js';
-import { ObjectId } from 'mongodb';
+import { projects, tasks, users, ObjectId } from '../utils/database.js';
 
 const router = express.Router();
 
@@ -21,7 +20,7 @@ router.get('/', async (req, res) => {
 // Get a user by id
 router.get('/:id', async (req, res) => {
 	const id = req.params.id;
-	const user = await users.findOne({ _id: new ObjectId(id) });
+	const user = await users.findOne({ _id: ObjectId(id) });
 	if (user) {
 		delete user.password;
 		delete user.tokens;
@@ -113,11 +112,11 @@ router.put('/', async (req, res) => {
 // Get all invitations for a user
 router.get('/:id/invitations', async (req, res) => {
 	const id = req.params.id;
-	const taskInvitations = await tasks.find({ collaborators: { $elemMatch: { _id: new ObjectId(id), accepted: false } } }).toArray();
+	const taskInvitations = await tasks.find({ collaborators: { $elemMatch: { _id: ObjectId(id), accepted: false } } }).toArray();
 	for (const task of taskInvitations) {
 		task.type = 'task';
 	};
-	const projectInvitations = await projects.find({ collaborators: { $elemMatch: { _id: new ObjectId(id), accepted: false } } }).toArray();
+	const projectInvitations = await projects.find({ collaborators: { $elemMatch: { _id: ObjectId(id), accepted: false } } }).toArray();
 	for (const project of projectInvitations) {
 		project.type = 'project';
 	};
@@ -137,13 +136,13 @@ router.post('/:id/invitations/:type/:invitationId', async (req, res) => {
 	const type = req.params.type;
 	const invitationId = req.params.invitationId;
 
-	const user = await users.findOne({ _id: new ObjectId(id) });
+	const user = await users.findOne({ _id: ObjectId(id) });
 	if (!user) {
 		res.status(404).json({ message: 'User not found' });
 		return;
 	};
 
-	const invitation = await (type === 'task' ? tasks : projects).findOne({ _id: new ObjectId(invitationId) });
+	const invitation = await (type === 'task' ? tasks : projects).findOne({ _id: ObjectId(invitationId) });
 	if (!invitation) {
 		res.status(404).json({ message: 'Invitation not found' });
 		return;
@@ -164,7 +163,7 @@ router.post('/:id/invitations/:type/:invitationId', async (req, res) => {
 	collaborators[index].accepted = true;
 	invitation.collaborators = collaborators;
 
-	const result = await (type === 'task' ? tasks : projects).updateOne({ _id: new ObjectId(invitationId) }, { $set: { collaborators } });
+	const result = await (type === 'task' ? tasks : projects).updateOne({ _id: ObjectId(invitationId) }, { $set: { collaborators } });
 	if (result.modifiedCount === 1) {
 		res.status(200).json({ message: 'Invitation accepted' });
 	} else {
@@ -179,13 +178,13 @@ router.delete('/:id/invitations/:type/:invitationId', async (req, res) => {
 	const type = req.params.type;
 	const invitationId = req.params.invitationId;
 
-	const user = await users.findOne({ _id: new ObjectId(id) });
+	const user = await users.findOne({ _id: ObjectId(id) });
 	if (!user) {
 		res.status(404).json({ message: 'User not found' });
 		return;
 	};
 
-	const invitation = await (type === 'task' ? tasks : projects).findOne({ _id: new ObjectId(invitationId) });
+	const invitation = await (type === 'task' ? tasks : projects).findOne({ _id: ObjectId(invitationId) });
 	if (!invitation) {
 		res.status(404).json({ message: 'Invitation not found' });
 		return;
@@ -206,7 +205,7 @@ router.delete('/:id/invitations/:type/:invitationId', async (req, res) => {
 	collaborators.splice(index, 1);
 	invitation.collaborators = collaborators;
 
-	const result = await (type === 'task' ? tasks : projects).updateOne({ _id: new ObjectId(invitationId) }, { $set: { collaborators } });
+	const result = await (type === 'task' ? tasks : projects).updateOne({ _id: ObjectId(invitationId) }, { $set: { collaborators } });
 	if (result.modifiedCount === 1) {
 		res.status(200).json({ message: 'Invitation declined' });
 	} else {

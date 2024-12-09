@@ -1,5 +1,6 @@
 
 import mongodb from 'mongodb';
+import { ObjectId as OriginalObjectId } from 'mongodb';
 
 /**
  * Database setup
@@ -67,4 +68,12 @@ admins.createIndex({ username: 1 }, { unique: true });
 tasks.createIndex({ title: 1 });
 projects.createIndex({ title: 1 });
 
-export { users, admins, tasks, projects };
+const ObjectId = (id) => {
+	try {
+		return new OriginalObjectId(id);
+	} catch (err) {
+		return null;
+	};
+};
+
+export { users, admins, tasks, projects, ObjectId };
