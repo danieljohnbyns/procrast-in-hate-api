@@ -173,6 +173,8 @@ router.post('/:id/invitations/:type/:invitationId', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `${user.name} has accepted the invitation to collaborate on ${invitation.title}` });
 		for (const connection of connections) {
 			if (invitation.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -223,6 +225,8 @@ router.delete('/:id/invitations/:type/:invitationId', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `${user.name} has declined the invitation to collaborate on ${invitation.title}` });
 		for (const connection of connections) {
 			if (invitation.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};

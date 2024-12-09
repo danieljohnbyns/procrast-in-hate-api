@@ -426,6 +426,8 @@ router.put('/:id/checklists', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Checklist item added to task ${task.title}` });
 		for (const connection of connections) {
 			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -467,6 +469,8 @@ router.patch('/:id/checklists/:itemId', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Checklist item updated on task ${task.title}` });
 		for (const connection of connections) {
 			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -507,6 +511,8 @@ router.delete('/:id/checklists/:itemId', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Checklist item deleted from task ${task.title}` });
 		for (const connection of connections) {
 			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -571,6 +577,8 @@ router.put('/:id/collaborators', async (req, res) => {
 		const taskMessage = JSON.stringify({ type: 'NOTIFICATION', message: `Collaborator ${collaborator.name} has been invited to task ${task.title}` });
 		for (const connection of connections) {
 			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(taskMessage);
 			};
 		};
@@ -611,6 +619,8 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Collaborator ${collaborator.name} has been removed from task ${task.title}` });
 		for (const connection of connections) {
 			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -619,6 +629,8 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 		const collaboratorMessage = JSON.stringify({ type: 'NOTIFICATION', message: `You have been removed from task ${task.title}` });
 		for (const connection of connections) {
 			if (collaboratorId === connection.authentication._id) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(collaboratorMessage);
 			};
 		};
@@ -673,6 +685,8 @@ router.patch('/:id/dates/:type', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Task ${task.title} dates have been updated` });
 		for (const connection of connections) {
 			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};

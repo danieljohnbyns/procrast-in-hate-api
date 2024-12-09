@@ -187,6 +187,8 @@ router.put('/', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `You have been invited to a new project ${newProject.title}`});
 		for (const connection of connections) {
 			if (newProject.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && !collaborator.accepted)) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -194,6 +196,8 @@ router.put('/', async (req, res) => {
 		const creatorMessage = JSON.stringify({ type: 'NOTIFICATION', message: `Project ${newProject.title} has been created`});
 		for (const connection of connections) {
 			if (newProject.creatorId.toString() === connection.authentication._id) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(creatorMessage);
 			};
 		};
@@ -239,6 +243,8 @@ router.put('/:id', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Project ${title} has been updated`});
 		for (const connection of connections) {
 			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -271,6 +277,8 @@ router.delete('/:id', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Project ${project.title} has been deleted`});
 		for (const connection of connections) {
 			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -311,6 +319,8 @@ router.patch('/:id/:completed', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Project ${project.title} has been marked as ${completed === 'true' ? 'completed' : 'incomplete'}`});
 		for (const connection of connections) {
 			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -365,6 +375,8 @@ router.put('/:id/collaborators', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `You have been invited to a project ${project.title}`});
 		for (const connection of connections) {
 			if (collaboratorId === connection.authentication._id) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -373,6 +385,8 @@ router.put('/:id/collaborators', async (req, res) => {
 		const collaboratorMessage = JSON.stringify({ type: 'NOTIFICATION', message: `${collaborator.name} has been added to the project`});
 		for (const connection of connections) {
 			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(collaboratorMessage);
 			};
 		};
@@ -416,6 +430,8 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `You have been removed from a project ${project.title}`});
 		for (const connection of connections) {
 			if (collaboratorId === connection.authentication._id) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
@@ -424,6 +440,8 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 		const collaboratorMessage = JSON.stringify({ type: 'NOTIFICATION', message: `A collaborator has been removed from the project`});
 		for (const connection of connections) {
 			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(collaboratorMessage);
 			};
 		};
@@ -487,6 +505,8 @@ router.patch('/:id/dates/:type', async (req, res) => {
 		const message = JSON.stringify({ type: 'NOTIFICATION', message: `Project ${project.title} dates have been updated`});
 		for (const connection of connections) {
 			if (project.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				const update = JSON.stringify({ type: 'UPDATE_DATA' });
+				connection.ws.send(update);
 				connection.ws.send(message);
 			};
 		};
