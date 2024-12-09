@@ -3,6 +3,8 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import { projects, tasks, users, ObjectId } from '../utils/database.js';
 
+import { connections } from '../utils/webSocketClientHandler.js';
+
 const router = express.Router();
 
 // GET /users
@@ -166,6 +168,14 @@ router.post('/:id/invitations/:type/:invitationId', async (req, res) => {
 	const result = await (type === 'task' ? tasks : projects).updateOne({ _id: ObjectId(invitationId) }, { $set: { collaborators } });
 	if (result.modifiedCount === 1) {
 		res.status(200).json({ message: 'Invitation accepted' });
+
+		// Notify serviceWorker collaborators that the user has accepted the invitation
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `${user.name} has accepted the invitation to collaborate on ${invitation.title}` });
+		for (const connection of connections) {
+			if (invitation.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to accept invitation' });
 	};
@@ -208,6 +218,14 @@ router.delete('/:id/invitations/:type/:invitationId', async (req, res) => {
 	const result = await (type === 'task' ? tasks : projects).updateOne({ _id: ObjectId(invitationId) }, { $set: { collaborators } });
 	if (result.modifiedCount === 1) {
 		res.status(200).json({ message: 'Invitation declined' });
+
+		// Notify serviceWorker collaborators that the user has declined the invitation
+		const message = JSON.stringify({ type: 'NOTIFICATION', message: `${user.name} has declined the invitation to collaborate on ${invitation.title}` });
+		for (const connection of connections) {
+			if (invitation.collaborators.find(collaborator => collaborator._id.toString() === connection.authentication._id && collaborator.accepted)) {
+				connection.ws.send(message);
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to decline invitation' });
 	};
