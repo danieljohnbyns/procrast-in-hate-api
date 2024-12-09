@@ -5,7 +5,7 @@ import bodyParser from 'body-parser';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 
-const PORT = 5050;
+const PORT = 5050 || process.env.PORT;
 
 const app = express();
 const server = http.createServer(app);
@@ -49,6 +49,5 @@ server.listen(PORT, () => {
 	console.log(`Server is running on http://localhost:${PORT}`);
 });
 
-wss.on('connection', (ws) => {
-	console.log('Someone connected to the WebSocket Server');
-});
+import webSocketClientHandler from './utils/webSocketClientHandler.js';
+webSocketClientHandler(wss);
