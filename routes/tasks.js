@@ -206,6 +206,18 @@ router.put('/', async (req, res) => {
 				connection.ws.send(creatorMessage);
 			};
 		};
+
+		// Notify the project creator that a task has been added to the project
+		if (projectId) {
+			const project = await projects.findOne({ _id: ObjectId(projectId) });
+			const projectCreator = await users.findOne({ _id: project.creatorId });
+			const projectMessage = JSON.stringify({ type: 'NOTIFICATION', message: `Task ${newTask.title} has been added to project ${project.title}` });
+			for (const connection of connections) {
+				if (projectCreator._id.toString() === connection.authentication._id) {
+					connection.ws.send(projectMessage);
+				};
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to create task' });
 	};
