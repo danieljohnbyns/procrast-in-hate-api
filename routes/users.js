@@ -32,6 +32,50 @@ router.get('/:id', async (req, res) => {
 	};
 });
 
+// GET /users/:id/connections
+// Get all connections of user's collaborators
+router.get('/:id/connections', async (req, res) => {
+	const id = req.params.id;
+	const user = await users.findOne({ _id: ObjectId(id) });
+	if (!user) {
+		res.status(404).json({ message: 'User not found' });
+		return;
+	};
+
+	// Find tasks and projects that the user is a collaborator on
+	const userTasks = [
+		...await tasks.find({ collaborators: { $elemMatch: { _id: ObjectId(id), accepted: true } } }).toArray(),
+		...await tasks.find({ creatorId: ObjectId(id) }).toArray()
+	];
+	const userProjects = [
+		...await projects.find({ collaborators: { $elemMatch: { _id: ObjectId(id), accepted: true } } }).toArray(),
+		...await projects.find({ creatorId: ObjectId(id) }).toArray()
+	];
+	const allCollaborators = [...userTasks, ...userProjects]
+		.map(item => item.collaborators)
+		.flat()
+		.filter(collaborator => collaborator.accepted)
+		.map(collaborator => collaborator._id.toString());
+
+	const collaborators = [...new Set(allCollaborators)].filter(collaborator => collaborator !== id);
+
+	const activeConnectionsId = connections
+		.filter(connection => collaborators.includes(connection.authentication._id) && !connection.authentication.serviceWorker)
+		.map(connection => connection.authentication._id);
+
+	const activeConnectionsUser = [];
+	for (const id of activeConnectionsId) {
+		const user = await users.findOne({ _id: ObjectId(id) });
+		if (user) {
+			delete user.password;
+			delete user.tokens;
+			activeConnectionsUser.push(user);
+		};
+	};
+
+	res.status(200).json(activeConnectionsUser);
+});
+
 // POST /users
 // Sign Up a user
 router.post('/', async (req, res) => {
