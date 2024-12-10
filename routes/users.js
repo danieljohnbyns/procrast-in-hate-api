@@ -1,7 +1,7 @@
 
 import express from 'express';
 import bcrypt from 'bcrypt';
-import { projects, tasks, users, ObjectId } from '../utils/database.js';
+import { projects, tasks, users, images, ObjectId } from '../utils/database.js';
 
 import { connections } from '../utils/webSocketClientHandler.js';
 
@@ -225,6 +225,49 @@ router.patch('/:id', async (req, res) => {
 		res.status(200).json({ message: 'User updated successfully' });
 	} else {
 		res.status(500).json({ message: 'Failed to update user' });
+	};
+});
+// PATCH /users/:id/profilePicture
+// Update a user's profile picture by id
+router.patch('/:id/profilePicture', async (req, res) => {
+	const id = req.params.id;
+	const user = await users.findOne({ _id: ObjectId(id) });
+	if (!user) {
+		res.status(404).json({ message: 'User not found' });
+		return;
+	};
+
+	const { image } = req.body;
+	if (!image) {
+		res.status(400).json({ message: 'Please provide an image' });
+		return;
+	};
+
+	const result = await images.updateOne({ _id: ObjectId(id) }, { $set: { image } }, { upsert: true });
+
+	if (result.modifiedCount === 1 || result.upsertedCount === 1) {
+		res.status(200).json({ message: 'Profile picture updated successfully' });
+	} else {
+		res.status(500).json({ message: 'Failed to update profile picture' });
+	};
+});
+// GET /users/:id/profilePicture
+// Get a user's profile picture by id
+router.get('/:id/profilePicture', async (req, res) => {
+	const id = req.params.id;
+	const image = await images.findOne({ _id: ObjectId(id) });
+	if (image) {
+		const buffer = Buffer.from(image.image.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+		const type = image.image.substring('data:image/'.length, image.image.indexOf(';base64'));
+		
+		res.writeHead(200, {
+			'Content-Type': `image/${type}`,
+			'Content-Length': buffer.length
+		});
+
+		res.end(buffer);
+	} else {
+		res.status(404).json({ message: 'Profile picture not found' });
 	};
 });
 

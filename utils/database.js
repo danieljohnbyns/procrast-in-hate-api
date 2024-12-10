@@ -44,6 +44,10 @@ import { ObjectId as OriginalObjectId } from 'mongodb';
  *  members: [ObjectId]
  * }
  * 
+ * images: {
+ * 	_id: ObjectId,
+ * 	image: Base64
+ * }
  */
 
 // Setup mongoDB
@@ -63,6 +67,7 @@ const users = db.collection('users');
 const admins = db.collection('admins');
 const tasks = db.collection('tasks');
 const projects = db.collection('projects');
+const images = db.collection('images');
 
 // Create indexes
 users.createIndex({ email: 1 }, { unique: true });
@@ -78,4 +83,4 @@ const ObjectId = (id) => {
 	};
 };
 
-export { users, admins, tasks, projects, ObjectId };
+export { users, admins, tasks, projects, images, ObjectId };
