@@ -57,23 +57,18 @@ router.get('/:id/connections', async (req, res) => {
 		.filter(collaborator => collaborator.accepted)
 		.map(collaborator => collaborator._id.toString());
 
-	const collaborators = [...new Set(allCollaborators)].filter(collaborator => collaborator !== id);
-
-	const activeConnectionsId = connections
-		.filter(connection => collaborators.includes(connection.authentication._id) && !connection.authentication.serviceWorker)
-		.map(connection => connection.authentication._id);
-
-	const activeConnectionsUser = [];
-	for (const id of activeConnectionsId) {
-		const user = await users.findOne({ _id: ObjectId(id) });
-		if (user) {
-			delete user.password;
-			delete user.tokens;
-			activeConnectionsUser.push(user);
+	const collaborators = [];
+	for (const collaboratorId of [...new Set(allCollaborators)].filter(collaborator => collaborator !== id)) {
+		const collaborator = await users.findOne({ _id: ObjectId(collaboratorId) });
+		if (collaborator) {
+			delete collaborator.password;
+			delete collaborator.tokens;
+			collaborator.online = connections.find(connection => connection.authentication._id === collaboratorId) ? true : false;
+			collaborators.push(collaborator);
 		};
 	};
 
-	res.status(200).json(activeConnectionsUser);
+	res.status(200).json(collaborators);
 });
 
 // POST /users
@@ -151,6 +146,40 @@ router.put('/', async (req, res) => {
 		};
 	} else {
 		res.status(400).json({ message: 'Invalid credentials' });
+	};
+});
+// DELETE /users
+// Sign Out a user
+router.delete('/', async (req, res) => {
+	const { _id, token } = req.body;
+
+	if (!_id || !token) {
+		res.status(400).json({ message: 'Please provide all the fields' });
+		return;
+	};
+
+	const user = await users.findOne({ _id: ObjectId(_id) });
+	if (!user) {
+		res.status(404).json({ message: 'User not found' });
+		return;
+	};
+
+	const tokens = user.tokens || [];
+	const index = tokens.findIndex(t => t === token);
+	if (index === -1) {
+		res.status(400).json({ message: 'Invalid credentials' });
+		return;
+	};
+
+	tokens.splice(index, 1);
+	user.tokens = tokens;
+
+	const result = await users.updateOne({ _id: ObjectId(_id) }, { $set: { tokens } });
+
+	if (result.modifiedCount === 1) {
+		res.status(200).json({ message: 'User signed out successfully' });
+	} else {
+		res.status(500).json({ message: 'Failed to sign out user' });
 	};
 });
 
