@@ -1,3 +1,5 @@
+import dotenv from 'dotenv';
+dotenv.config();
 
 import mongodb from 'mongodb';
 import { ObjectId as OriginalObjectId } from 'mongodb';
@@ -45,7 +47,7 @@ import { ObjectId as OriginalObjectId } from 'mongodb';
  */
 
 // Setup mongoDB
-const url = 'mongodb://localhost:27017';
+const url = process.env.MONGODB_ATLAS_URI || 'mongodb://localhost:27017';
 const client = new mongodb.MongoClient(url);
 
 // Connect to the server
