@@ -251,6 +251,136 @@ router.post('/authenticate', async (req, res) => {
 		res.status(400).json({ message: 'Invalid credentials' });
 	};
 });
+// POST /users/:id/passwordReset/request
+// Request a password reset
+/**
+ * @type {{
+ * 		code: String,
+ * 		expiry: Date,
+ * 		userId: String,
+ * 		email: String
+ * }[]}
+ */
+const requests = [];
+router.post('/passwordReset/request', async (req, res) => {
+	const { email } = req.body;
+
+	if (!email) {
+		res.status(400).json({ message: 'Please provide an email' });
+		return;
+	};
+
+	const user = await users.findOne({ email });
+	if (!user) {
+		res.status(404).json({ message: 'User not found' });
+		return;
+	};
+
+	const code = `${Math.random().toString(36).substring(2, 5).toUpperCase()} ${Math.random().toString(36).substring(2, 5).toUpperCase()} ${Math.random().toString(36).substring(2, 6)}`;
+	const expiry = new Date(Date.now() + 600000); // 10 minutes
+	const userId = user._id.toString();
+
+	requests.push({ code, expiry, userId, email });
+
+	// Email the user the password reset code
+	mailer({
+		to: email,
+		subject: 'Password reset code',
+		content: `
+<h1>Password reset code</h1>
+<p>Hi ${user.name},</p>
+<p>Your password reset code is <strong>${code}</strong>. It will expire in 10 minutes.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+	});
+
+	res.status(200).json({ message: 'Password reset code sent' });
+});
+// POST /users/:id/passwordReset/confirm
+// Confirm a password reset using the code
+router.post('/passwordReset/confirm', async (req, res) => {
+	const { email, code } = req.body;
+
+	const user = await users.findOne({ email });
+	if (!user) {
+		res.status(404).json({ message: 'User not found' });
+		return;
+	};
+
+	if (!email || !code) {
+		res.status(400).json({ message: 'Please provide all the fields' });
+		return;
+	};
+
+	const request = requests.find(request => request.email === email && request.code === code);
+	if (!request) {
+		res.status(400).json({ message: 'Invalid code' });
+		return;
+	};
+
+	if (new Date() > new Date(request.expiry)) {
+		res.status(400).json({ message: 'Code expired' });
+		return;
+	};
+
+	res.status(200).json({ message: 'Code confirmed' });
+});
+// POST /users/:id/passwordReset/reset
+// Reset a password using the code
+router.post('/passwordReset/reset', async (req, res) => {
+	const { email, code, password } = req.body;
+	
+	if (!email || !code || !password) {
+		res.status(400).json({ message: 'Please provide all the fields' });
+		return;
+	};
+
+	const user = await users.findOne({ email });
+	if (!user) {
+		res.status(404).json({ message: 'User not found' });
+		return;
+	};
+
+	const request = requests.find(request => request.email === email && request.code === code);
+	if (!request) {
+		res.status(400).json({ message: 'Invalid code' });
+		return;
+	};
+
+	if (new Date() > new Date(request.expiry)) {
+		res.status(400).json({ message: 'Code expired' });
+		return;
+	};
+
+	if (password.length < 6) {
+		res.status(400).json({ message: 'Password must be at least 6 characters long' });
+		return;
+	};
+
+	const salt = await bcrypt.genSalt(10);
+	const hashedPassword = await bcrypt.hash(password, salt);
+
+	// Update the user's password and delete all tokens
+	const result = await users.updateOne({ email }, { $set: { password: hashedPassword, tokens: [] } });
+
+	if (result.modifiedCount === 1) {
+		res.status(200).json({ message: 'Password reset successfully' });
+
+		// Email the user that their password has been reset
+		mailer({
+			to: email,
+			subject: 'Password reset',
+			content: `
+<h1>Password reset</h1>
+<p>Hi ${user.name},</p>
+<p>Your password has been reset successfully.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
+	} else {
+		res.status(500).json({ message: 'Failed to reset password' });
+	};
+});
 
 // PATCH /users/:id
 // Update a user by id
