@@ -1,6 +1,6 @@
 
 import express from 'express';
-import { projects, tasks, users, ObjectId } from '../utils/database.js';
+import { projects, tasks, users, archives, ObjectId } from '../utils/database.js';
 
 import { connections } from '../utils/webSocketClientHandler.js';
 import mailer from '../utils/mailer.js';
@@ -376,6 +376,17 @@ router.delete('/:id', async (req, res) => {
 
 	if (!task) {
 		res.status(404).json({ message: 'Task not found' });
+		return;
+	};
+
+	// Move task to archives
+	const archiveResult = await archives.insertOne({
+		_id: ObjectId(id),
+		type: 'task',
+		data: task
+	});
+	if (!archiveResult.insertedId) {
+		res.status(500).json({ message: 'Failed to delete task' });
 		return;
 	};
 

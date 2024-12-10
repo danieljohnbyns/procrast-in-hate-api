@@ -1,6 +1,6 @@
 
 import express from 'express';
-import { projects, tasks, users, ObjectId } from '../utils/database.js';
+import { projects, tasks, users, archives, ObjectId } from '../utils/database.js';
 
 import { connections } from '../utils/webSocketClientHandler.js';
 import mailer from '../utils/mailer.js';
@@ -319,6 +319,25 @@ router.delete('/:id', async (req, res) => {
 		return;
 	};
 
+	// Move project to archive
+	await archives.insertOne({
+		_id: ObjectId(id),
+		type: 'project',
+		data: project
+	});
+
+	// Move tasks to archive
+	const projectTasks = await tasks.find({ projectId: ObjectId(id) }).toArray();
+	for (const task of projectTasks) {
+		await archives.insertOne({
+			_id: task._id,
+			type: 'task',
+			data: task
+		});
+	};
+
+	// Delete project and tasks
+	await tasks.deleteMany({ projectId: ObjectId(id) });
 	const result = await projects.deleteOne({ _id: ObjectId(id) });
 
 	if (result.deletedCount) {

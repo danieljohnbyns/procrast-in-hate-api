@@ -1,7 +1,7 @@
 
 import express from 'express';
 import bcrypt from 'bcrypt';
-import { projects, tasks, users, images, ObjectId } from '../utils/database.js';
+import { projects, tasks, users, images, archives, ObjectId } from '../utils/database.js';
 
 import { connections } from '../utils/webSocketClientHandler.js';
 import mailer from '../utils/mailer.js';
@@ -380,6 +380,53 @@ router.post('/passwordReset/reset', async (req, res) => {
 	} else {
 		res.status(500).json({ message: 'Failed to reset password' });
 	};
+});
+// DELETE /users/:id
+// Delete a user by id
+router.delete('/:id', async (req, res) => {
+	const id = req.params.id;
+	const user = await users.findOne({ _id: ObjectId(id) });
+	if (!user) {
+		res.status(404).json({ message: 'User not found' });
+		return;
+	};
+
+	// Get tasks and projects that the user is a creator of
+	const userTasks = await tasks.find({ creatorId: ObjectId(id) }).toArray();
+	const userProjects = await projects.find({ creatorId: ObjectId(id) }).toArray();
+
+	const archivesData = [
+		...userTasks.map(task => ({ type: 'task', data: task })),
+		...userProjects.map(project => ({ type: 'project', data: project }))
+	];
+	if (archivesData.length > 0) {
+		await archives.insertMany(archivesData);
+	};
+
+	await tasks.deleteMany({ creatorId: ObjectId(id) });
+	await projects.deleteMany({ creatorId: ObjectId(id) });
+
+	// Collaborations
+	const collaborations = [
+		...await tasks.find({ collaborators: { $elemMatch: { _id: ObjectId(id) } } }).toArray(),
+		...await projects.find({ collaborators: { $elemMatch: { _id: ObjectId(id) } } }).toArray()
+	];
+	for (const collaboration of collaborations) {
+		const collaborators = collaboration.collaborators || [];
+		const index = collaborators.findIndex(collaborator => collaborator._id.toString() === id);
+		if (index !== -1) {
+			collaborators.splice(index, 1);
+			collaboration.collaborators = collaborators;
+			await (collaboration.type === 'task' ? tasks : projects).updateOne({ _id: ObjectId(collaboration._id) }, { $set: { collaborators } });
+		};
+	};
+
+	await archives.insertOne({ type: 'user', data: user });
+
+	await users.deleteOne({ _id: ObjectId(id) });
+	await images.deleteOne({ _id: ObjectId(id) });
+
+	res.status(200).json({ message: 'User deleted successfully' });
 });
 
 // PATCH /users/:id
