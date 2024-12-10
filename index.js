@@ -4,6 +4,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import http from 'http';
 import { WebSocketServer } from 'ws';
+import * as logUpdate from 'log-update';
 
 const PORT = 5050 || process.env.PORT;
 
@@ -11,7 +12,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: false, limit: '50mb' }));
 
 app.use((req, res, next) => {
@@ -27,9 +28,17 @@ app.use((req, res, next) => {
 	 * }}
 	 */
 	req.authentication = JSON.parse(req.headers.authentication || '{}');
-
-	console.log(`${req.method} ${req.url}`);
 	next();
+
+	const log = logUpdate.createLogUpdate(process.stdout, {
+		showCursor: true
+	});
+	log(`Request: ${req.method} '${req.url}'`);
+
+	res.on('finish', () => {
+		log(`Request: ${req.method} '${req.url}' - ${res.statusCode} ${res.statusMessage}`);
+		log.done();
+	});
 });
 
 import userRoutes from './routes/users.js';

@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { projects, tasks, users, images, ObjectId } from '../utils/database.js';
 
 import { connections } from '../utils/webSocketClientHandler.js';
+import mailer from '../utils/mailer.js';
 
 const router = express.Router();
 
@@ -93,8 +94,18 @@ router.post('/', async (req, res) => {
 		return;
 	};
 
+	if (name.length < 3) {
+		res.status(400).json({ message: 'Name must be at least 3 characters long' });
+		return;
+	};
+
 	if (!validateEmail(email)) {
 		res.status(400).json({ message: 'Please provide a valid email' });
+		return;
+	};
+
+	if (password.length < 6) {
+		res.status(400).json({ message: 'Password must be at least 6 characters long' });
 		return;
 	};
 
@@ -111,6 +122,19 @@ router.post('/', async (req, res) => {
 
 	if (result.insertedId) {
 		res.status(200).json({ message: 'User signed up successfully' });
+
+		// Send a welcome email to the user
+		mailer({
+			to: email,
+			subject: 'Welcome to the Procrast In Hate',
+			content: `
+<h1>Welcome to the Procrast In Hate</h1>
+<p>Hi ${name},</p>
+<p>Thank you for signing up to the Procrast In Hate. We are excited to have you on board.</p>
+<p>Get started by creating a project or a task and collaborating with your team.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
 	} else {
 		res.status(500).json({ message: 'Failed to sign up user' });
 	};
@@ -150,6 +174,18 @@ router.put('/', async (req, res) => {
 					token: token,
 					_id: user._id
 				}
+			});
+
+			// Email the user that they have signed in
+			mailer({
+				to: email,
+				subject: 'You have signed in',
+				content: `
+<h1>You have signed in</h1>
+<p>Hi ${user.name},</p>
+<p>Welcme back to the Procrast In Hate. You have successfully signed in.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
 			});
 		} else {
 			res.status(500).json({ message: 'Failed to sign in user' });
@@ -192,6 +228,29 @@ router.delete('/', async (req, res) => {
 		res.status(500).json({ message: 'Failed to sign out user' });
 	};
 });
+// POST /users/authenticate
+// Authenticate a user
+router.post('/authenticate', async (req, res) => {
+	const { _id, token } = req.body;
+
+	if (!_id || !token) {
+		res.status(400).json({ message: 'Please provide all the fields' });
+		return;
+	};
+
+	const user = await users.findOne({ _id: ObjectId(_id) });
+	if (!user) {
+		res.status(404).json({ message: 'User not found' });
+		return;
+	};
+
+	const tokens = user.tokens || [];
+	if (tokens.includes(token)) {
+		res.status(200).json({ message: 'User authenticated' });
+	} else {
+		res.status(400).json({ message: 'Invalid credentials' });
+	};
+});
 
 // PATCH /users/:id
 // Update a user by id
@@ -213,6 +272,12 @@ router.patch('/:id', async (req, res) => {
 	if (email) {
 		if (!validateEmail(email)) {
 			res.status(400).json({ message: 'Please provide a valid email' });
+			return;
+		};
+		// Check if the email is already taken
+		const existingUser = await users.findOne({ email });
+		if (existingUser && existingUser._id.toString() !== id) {
+			res.status(400).json({ message: 'Email already taken' });
 			return;
 		};
 		update.email = email;
@@ -243,9 +308,20 @@ router.patch('/:id/profilePicture', async (req, res) => {
 		return;
 	};
 
-	const result = await images.updateOne({ _id: ObjectId(id) }, { $set: { image } }, { upsert: true });
+	// Delete the previous profile picture
+	const previousImage = await images.findOne({ _id: ObjectId(id) });
+	if (previousImage) {
+		await images.deleteOne({ _id: ObjectId(id) });
+	};
 
-	if (result.modifiedCount === 1 || result.upsertedCount === 1) {
+	const newImage = {
+		_id: ObjectId(id),
+		image
+	};
+
+	const result = await images.insertOne(newImage);
+
+	if (result.insertedId) {
 		res.status(200).json({ message: 'Profile picture updated successfully' });
 	} else {
 		res.status(500).json({ message: 'Failed to update profile picture' });
