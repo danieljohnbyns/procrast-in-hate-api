@@ -3,6 +3,7 @@ import express from 'express';
 import { projects, tasks, users, ObjectId } from '../utils/database.js';
 
 import { connections } from '../utils/webSocketClientHandler.js';
+import mailer from '../utils/mailer.js';
 
 const router = express.Router();
 
@@ -240,6 +241,33 @@ router.put('/', async (req, res) => {
 				};
 			};
 		};
+
+		// Email creator and collaborators
+		mailer({
+			to: creator.email,
+			subject: 'Task Created',
+			content: `
+<h1>Task Created</h1>
+<p>Hi ${creator.name},</p>
+<p>Task <b>${newTask.title}</b> has been created successfully.</p>
+<p>Get started by adding collaborators and checklist items.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
+		for (const collaborator of collaborators) {
+			const user = await users.findOne({ _id: collaborator });
+			mailer({
+				to: user.email,
+				subject: 'Task Invitation',
+				content: `
+<h1>Task Invitation</h1>
+<p>Hi ${user.name},</p>
+<p>You have been invited to a new task <b>${newTask.title}</b>.</p>
+<p>Get started by accepting the invitation.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+			});
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to create task' });
 	};
@@ -320,6 +348,22 @@ router.put('/:id', async (req, res) => {
 				connection.ws.send(message);
 			};
 		};
+
+		// Email creator and collaborators
+		for (const collaborator of [...collaborators, { _id: creatorId }]) {
+			const user = await users.findOne({ _id: collaborator });
+			mailer({
+				to: user.email,
+				subject: 'Task Updated',
+				content: `
+<h1>Task Updated</h1>
+<p>Hi ${user.name},</p>
+<p>Task <b>${updatedTask.title}</b> has been updated.</p>
+<p>Get started by checking the changes.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+			});
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to update task' });
 	};
@@ -346,6 +390,21 @@ router.delete('/:id', async (req, res) => {
 			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
 				connection.ws.send(message);
 			};
+		};
+
+		// Email creator and collaborators
+		for (const collaborator of [...task.collaborators, { _id: task.creatorId }]) {
+			const user = await users.findOne({ _id: collaborator._id });
+			mailer({
+				to: user.email,
+				subject: 'Task Deleted',
+				content: `
+<h1>Task Deleted</h1>
+<p>Hi ${user.name},</p>
+<p>Task <b>${task.title}</b> has been deleted.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+			});
 		};
 	} else {
 		res.status(500).json({ message: 'Failed to delete task' });
@@ -382,6 +441,21 @@ router.patch('/:id/:completed', async (req, res) => {
 			if (task.collaborators.find((collaborator) => collaborator._id.toString() === connection.authentication._id && collaborator.accepted) || task.creatorId.toString() === connection.authentication._id) {
 				connection.ws.send(message);
 			};
+		};
+
+		// Email creator and collaborators
+		for (const collaborator of [...task.collaborators, { _id: task.creatorId }]) {
+			const user = await users.findOne({ _id: collaborator._id });
+			mailer({
+				to: user.email,
+				subject: 'Task Status Updated',
+				content: `
+<h1>Task Status Updated</h1>
+<p>Hi ${user.name},</p>
+<p>Task <b>${task.title}</b> has been marked as ${completed ? 'completed' : 'incomplete'}.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+			});
 		};
 	} else {
 		res.status(500).json({ message: 'Failed to update task status' });
@@ -431,6 +505,21 @@ router.put('/:id/checklists', async (req, res) => {
 				connection.ws.send(message);
 			};
 		};
+
+		// Email creator and collaborators
+		for (const collaborator of [...task.collaborators, { _id: task.creatorId }]) {
+			const user = await users.findOne({ _id: collaborator._id });
+			mailer({
+				to: user.email,
+				subject: 'Checklist Item Added',
+				content: `
+<h1>Checklist Item Added</h1>
+<p>Hi ${user.name},</p>
+<p>Checklist item <b>${updatedChecklist.item}</b> has been added to task ${task.title}.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+			});
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to add checklist item' });
 	};
@@ -474,6 +563,21 @@ router.patch('/:id/checklists/:itemId', async (req, res) => {
 				connection.ws.send(message);
 			};
 		};
+
+		// Email creator and collaborators
+		for (const collaborator of [...task.collaborators, { _id: task.creatorId }]) {
+			const user = await users.findOne({ _id: collaborator._id });
+			mailer({
+				to: user.email,
+				subject: 'Checklist Item Updated',
+				content: `
+<h1>Checklist Item Updated</h1>
+<p>Hi ${user.name},</p>
+<p>Checklist item <b>${checklist.item}</b> has been marked as ${completed ? 'completed' : 'incomplete'}.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+			});
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to update checklist item' });
 	};
@@ -516,6 +620,18 @@ router.delete('/:id/checklists/:itemId', async (req, res) => {
 				connection.ws.send(message);
 			};
 		};
+
+		// Email creator and collaborators
+		mailer({
+			to: creator.email,
+			subject: 'Checklist Item Deleted',
+			content: `
+<h1>Checklist Item Deleted</h1>
+<p>Hi ${creator.name},</p>
+<p>Checklist item <b>${checklist.item}</b> has been deleted.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
 	} else {
 		res.status(500).json({ message: 'Failed to delete checklist item' });
 	};
@@ -582,6 +698,19 @@ router.put('/:id/collaborators', async (req, res) => {
 				connection.ws.send(taskMessage);
 			};
 		};
+
+		// Email collaborator
+		mailer({
+			to: collaborator.email,
+			subject: 'Task Invitation',
+			content: `
+<h1>Task Invitation</h1>
+<p>Hi ${collaborator.name},</p>
+<p>You have been invited to a new task <b>${task.title}</b>.</p>
+<p>Get started by accepting the invitation.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
 	} else {
 		res.status(500).json({ message: 'Failed to add collaborator' });
 	};
@@ -634,6 +763,18 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 				connection.ws.send(collaboratorMessage);
 			};
 		};
+
+		// Email collaborator
+		mailer({
+			to: collaborator.email,
+			subject: 'Task Removed',
+			content: `
+<h1>Task Removed</h1>
+<p>Hi ${collaborator.name},</p>
+<p>You have been removed from task <b>${task.title}</b>.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
 	} else {
 		res.status(500).json({ message: 'Failed to delete collaborator' });
 	};
@@ -690,6 +831,21 @@ router.patch('/:id/dates/:type', async (req, res) => {
 				connection.ws.send(message);
 			};
 		};
+
+		// Email creator and collaborators
+		for (const collaborator of [...task.collaborators, { _id: task.creatorId }]) {
+			const user = await users.findOne({ _id: collaborator._id });
+			mailer({
+				to: user.email,
+				subject: 'Task Dates Updated',
+				content: `
+<h1>Task Dates Updated</h1>
+<p>Hi ${user.name},</p>
+<p>Task <b>${task.title}</b> dates have been updated.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+			});
+		}
 	} else {
 		res.status(500).json({ message: 'Failed to update date' });
 	};

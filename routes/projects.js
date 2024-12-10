@@ -3,6 +3,7 @@ import express from 'express';
 import { projects, tasks, users, ObjectId } from '../utils/database.js';
 
 import { connections } from '../utils/webSocketClientHandler.js';
+import mailer from '../utils/mailer.js';
 
 const router = express.Router();
 
@@ -145,6 +146,12 @@ router.put('/', async (req, res) => {
 		return;
 	};
 
+	const creator = await users.findOne({ _id: ObjectId(creatorId) });
+	if (!creator) {
+		res.status(404).json({ message: 'User does not exist' });
+		return;
+	};
+
 	for (const collaborator of collaborators) {
 		const user = await users.findOne({ _id: ObjectId(collaborator) });
 		if (!user) {
@@ -201,6 +208,33 @@ router.put('/', async (req, res) => {
 				connection.ws.send(creatorMessage);
 			};
 		};
+
+		// Email creator and collaborators
+		mailer({
+			to: creator.email,
+			subject: 'Project Created',
+			content: `
+<h1>Project Created</h1>
+<p>Hi ${creator.name},</p>
+<p>Project <b>${newProject.title}</b> has been created successfully.</p>
+<p>Get started by adding collaborators and tasks.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
+		for (const collaborator of collaborators) {
+			const user = await users.findOne({ _id: ObjectId(collaborator) });
+			mailer({
+				to: user.email,
+				subject: 'Project Created',
+				content: `
+<h1>Project Created</h1>
+<p>Hi ${user.name},</p>
+<p>You have been invited to a new project <b>${newProject.title}</b>.</p>
+<p>Get started by accepting the invitation.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+			});
+		};
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
@@ -248,6 +282,23 @@ router.put('/:id', async (req, res) => {
 				connection.ws.send(message);
 			};
 		};
+
+		// Email collaborators
+		for (const collaborator of project.collaborators) {
+			if (collaborator.accepted) {
+				const user = await users.findOne({ _id: collaborator._id });
+				mailer({
+					to: user.email,
+					subject: 'Project Updated',
+					content: `
+<h1>Project Updated</h1>
+<p>Hi ${user.name},</p>
+<p>Project <b>${title}</b> has been updated.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+				});
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
@@ -280,6 +331,23 @@ router.delete('/:id', async (req, res) => {
 				const update = JSON.stringify({ type: 'UPDATE_DATA' });
 				connection.ws.send(update);
 				connection.ws.send(message);
+			};
+		};
+
+		// Email collaborators
+		for (const collaborator of project.collaborators) {
+			if (collaborator.accepted) {
+				const user = await users.findOne({ _id: collaborator._id });
+				mailer({
+					to: user.email,
+					subject: 'Project Deleted',
+					content: `
+<h1>Project Deleted</h1>
+<p>Hi ${user.name},</p>
+<p>Project <b>${project.title}</b> has been deleted.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+				});
 			};
 		};
 	} else {
@@ -322,6 +390,23 @@ router.patch('/:id/:completed', async (req, res) => {
 				const update = JSON.stringify({ type: 'UPDATE_DATA' });
 				connection.ws.send(update);
 				connection.ws.send(message);
+			};
+		};
+
+		// Email collaborators
+		for (const collaborator of project.collaborators) {
+			if (collaborator.accepted) {
+				const user = await users.findOne({ _id: collaborator._id });
+				mailer({
+					to: user.email,
+					subject: 'Project Updated',
+					content: `
+<h1>Project Updated</h1>
+<p>Hi ${user.name},</p>
+<p>Project <b>${project.title}</b> has been marked as ${completed === 'true' ? 'completed' : 'incomplete'}.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+				});
 			};
 		};
 	} else {
@@ -390,6 +475,19 @@ router.put('/:id/collaborators', async (req, res) => {
 				connection.ws.send(collaboratorMessage);
 			};
 		};
+
+		// Email collaborator
+		mailer({
+			to: collaborator.email,
+			subject: 'Project Invitation',
+			content: `
+<h1>Project Invitation</h1>
+<p>Hi ${collaborator.name},</p>
+<p>You have been invited to a project <b>${project.title}</b>.</p>
+<p>Get started by accepting the invitation.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
@@ -406,6 +504,12 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 
 	if (project.completed) {
 		res.status(400).json({ message: 'Project is already completed' });
+		return;
+	};
+
+	const collaborator = users.findOne({ _id: ObjectId(collaboratorId) });
+	if (!collaborator) {
+		res.status(404).json({ message: 'Collaborator does not exist' });
 		return;
 	};
 
@@ -445,6 +549,18 @@ router.delete('/:id/collaborators/:collaboratorId', async (req, res) => {
 				connection.ws.send(collaboratorMessage);
 			};
 		};
+
+		// Email collaborator
+		mailer({
+			to: collaborator.email,
+			subject: 'Project Removal',
+			content: `
+<h1>Project Removal</h1>
+<p>Hi ${collaborator.name},</p>
+<p>You have been removed from a project <b>${project.title}</b>.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
 	} else {
 		res.status(500).json({ message: 'Something went wrong' });
 	};
@@ -508,6 +624,23 @@ router.patch('/:id/dates/:type', async (req, res) => {
 				const update = JSON.stringify({ type: 'UPDATE_DATA' });
 				connection.ws.send(update);
 				connection.ws.send(message);
+			};
+		};
+
+		// Email collaborators
+		for (const collaborator of project.collaborators) {
+			if (collaborator.accepted) {
+				const user = await users.findOne({ _id: collaborator._id });
+				mailer({
+					to: user.email,
+					subject: 'Project Dates Updated',
+					content: `
+<h1>Project Dates Updated</h1>
+<p>Hi ${user.name},</p>
+<p>Project <b>${project.title}</b> dates have been updated.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+				});
 			};
 		};
 	} else {

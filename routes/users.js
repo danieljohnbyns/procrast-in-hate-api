@@ -288,6 +288,18 @@ router.patch('/:id', async (req, res) => {
 
 	if (result.modifiedCount === 1) {
 		res.status(200).json({ message: 'User updated successfully' });
+
+		// Email the user that their profile has been updated
+		mailer({
+			to: email,
+			subject: 'Profile updated',
+			content: `
+<h1>Your profile has been updated</h1>
+<p>Hi ${name},</p>
+<p>Your profile has been updated successfully.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
 	} else {
 		res.status(500).json({ message: 'Failed to update user' });
 	};
@@ -323,6 +335,18 @@ router.patch('/:id/profilePicture', async (req, res) => {
 
 	if (result.insertedId) {
 		res.status(200).json({ message: 'Profile picture updated successfully' });
+
+		// Email the user that their profile picture has been updated
+		mailer({
+			to: user.email,
+			subject: 'Profile picture updated',
+			content: `
+<h1>Your profile picture has been updated</h1>
+<p>Hi ${user.name},</p>
+<p>Your profile picture has been updated successfully.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
 	} else {
 		res.status(500).json({ message: 'Failed to update profile picture' });
 	};
@@ -415,6 +439,34 @@ router.post('/:id/invitations/:type/:invitationId', async (req, res) => {
 				connection.ws.send(message);
 			};
 		};
+
+		// Email the user that they have accepted the invitation
+		mailer({
+			to: user.email,
+			subject: 'Invitation accepted',
+			content: `
+<h1>You have accepted the invitation</h1>
+<p>Hi ${user.name},</p>
+<p>You have accepted the invitation to collaborate on ${invitation.title}.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
+		// Email the collaborators of the task or project that the user has accepted the invitation
+		for (const collaborator of collaborators) {
+			if (collaborator._id.toString() !== id && collaborator.accepted) {
+				const collaboratorUser = await users.findOne({ _id: collaborator._id });
+				mailer({
+					to: collaboratorUser.email,
+					subject: 'Collaborator accepted the invitation',
+					content: `
+<h1>Collaborator accepted the invitation</h1>
+<p>Hi ${collaboratorUser.name},</p>
+<p>${user.name} has accepted the invitation to collaborate on ${invitation.title}.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+				});
+			};
+		};
 	} else {
 		res.status(500).json({ message: 'Failed to accept invitation' });
 	};
@@ -465,6 +517,34 @@ router.delete('/:id/invitations/:type/:invitationId', async (req, res) => {
 				const update = JSON.stringify({ type: 'UPDATE_DATA' });
 				connection.ws.send(update);
 				connection.ws.send(message);
+			};
+		};
+
+		// Email the user that they have declined the invitation
+		mailer({
+			to: user.email,
+			subject: 'Invitation declined',
+			content: `
+<h1>You have declined the invitation</h1>
+<p>Hi ${user.name},</p>
+<p>You have declined the invitation to collaborate on ${invitation.title}.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+		});
+		// Email the collaborators of the task or project that the user has declined the invitation
+		for (const collaborator of collaborators) {
+			if (collaborator._id.toString() !== id && collaborator.accepted) {
+				const collaboratorUser = await users.findOne({ _id: collaborator._id });
+				mailer({
+					to: collaboratorUser.email,
+					subject: 'Collaborator declined the invitation',
+					content: `
+<h1>Collaborator declined the invitation</h1>
+<p>Hi ${collaboratorUser.name},</p>
+<p>${user.name} has declined the invitation to collaborate on ${invitation.title}.</p>
+<p>Best regards,</p>
+<p>Procrast In Hate Team</p>`
+				});
 			};
 		};
 	} else {
