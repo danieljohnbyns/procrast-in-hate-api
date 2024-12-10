@@ -7,6 +7,11 @@ import { connections } from '../utils/webSocketClientHandler.js';
 
 const router = express.Router();
 
+const validateEmail = email => {
+	const re = /(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/;
+	return re.test(email);
+};
+
 // GET /users
 // Get all users
 router.get('/', async (req, res) => {
@@ -85,6 +90,11 @@ router.post('/', async (req, res) => {
 
 	if (user) {
 		res.status(400).json({ message: 'User already exists' });
+		return;
+	};
+
+	if (!validateEmail(email)) {
+		res.status(400).json({ message: 'Please provide a valid email' });
 		return;
 	};
 
@@ -180,6 +190,41 @@ router.delete('/', async (req, res) => {
 		res.status(200).json({ message: 'User signed out successfully' });
 	} else {
 		res.status(500).json({ message: 'Failed to sign out user' });
+	};
+});
+
+// PATCH /users/:id
+// Update a user by id
+router.patch('/:id', async (req, res) => {
+	const id = req.params.id;
+	const user = await users.findOne({ _id: ObjectId(id) });
+	if (!user) {
+		res.status(404).json({ message: 'User not found' });
+		return;
+	};
+
+	const { name, email } = req.body;
+	const update = {};
+
+	if (name) {
+		update.name = name;
+	};
+
+	if (email) {
+		if (!validateEmail(email)) {
+			res.status(400).json({ message: 'Please provide a valid email' });
+			return;
+		};
+		update.email = email;
+	};
+
+	const newUser = { ...user, ...update };
+	const result = await users.updateOne({ _id: ObjectId(id) }, { $set: newUser });
+
+	if (result.modifiedCount === 1) {
+		res.status(200).json({ message: 'User updated successfully' });
+	} else {
+		res.status(500).json({ message: 'Failed to update user' });
 	};
 });
 
