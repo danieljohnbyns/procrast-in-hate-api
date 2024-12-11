@@ -27,7 +27,7 @@ router.get('/:id', async (req, res) => {
 	const project = await projects.findOne({ _id: ObjectId(req.params.id) });
 	if (project) {
 		const collaborators = [];
-		for (const collaborator of project.collaborators) {
+		for (const collaborator of project.collaborators.filter(collaborator => collaborator._id.toString() !== project.creatorId.toString())) {
 			const user = await users.findOne({ _id: collaborator._id });
 			collaborators.push({ _id: collaborator._id, name: user.name, accepted: collaborator.accepted });
 		};
