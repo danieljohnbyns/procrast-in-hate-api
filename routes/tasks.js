@@ -352,7 +352,8 @@ router.put('/:id', async (req, res) => {
 		// Email creator and collaborators
 		for (const collaborator of [...collaborators, { _id: creatorId }]) {
 			const user = await users.findOne({ _id: collaborator });
-			mailer({
+			try {
+				mailer({
 				to: user.email,
 				subject: 'Task Updated',
 				content: `
@@ -363,6 +364,9 @@ router.put('/:id', async (req, res) => {
 <p>Best regards,</p>
 <p>Procrast In Hate Team</p>`
 			});
+			} catch (error) {
+				console.error(`Failed to send email to ${user.email}:`, error);
+			};
 		};
 	} else {
 		res.status(500).json({ message: 'Failed to update task' });
