@@ -257,11 +257,11 @@ router.put('/', async (req, res) => {
 		for (const collaborator of collaborators) {
 			const user = await users.findOne({ _id: collaborator });
 			mailer({
-				to: user.email,
+				to: user?.email,
 				subject: 'Task Invitation',
 				content: `
 <h1>Task Invitation</h1>
-<p>Hi ${user.name},</p>
+<p>Hi ${user?.name},</p>
 <p>You have been invited to a new task <b>${newTask.title}</b>.</p>
 <p>Get started by accepting the invitation.</p>
 <p>Best regards,</p>
